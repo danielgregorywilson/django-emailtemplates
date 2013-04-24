@@ -17,7 +17,7 @@ from django.contrib.sites.models import Site
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
 from django.template.defaultfilters import striptags
-from basic_models import models as basic_models
+import basic_models
 
 
 
