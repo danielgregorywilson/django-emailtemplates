@@ -1,11 +1,11 @@
-# Copyright 2011 Concentric Sky, Inc. 
-# 
+# Copyright 2011 Concentric Sky, Inc.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #   http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from django.template import Template, Context, loader, TemplateDoesNotExist
+from django.conf import settings
 from django.contrib.sites.models import Site
 from django.core.mail import EmailMultiAlternatives
 from django.db import models
@@ -30,7 +31,7 @@ class EmailTemplate(basic_models.SlugModel):
 
     def render(self, context):
         if self.base_template:
-            try: 
+            try:
                 t = loader.get_template(self.base_template)
                 context.update({'email_body': self._render_from_string(self.body, context)})
                 return t.render(Context(context))
@@ -41,35 +42,52 @@ class EmailTemplate(basic_models.SlugModel):
     def render_txt(self, context):
         if self.txt_body:
             return self._render_from_string(self.txt_body, context)
-    
+
     def visible_from_address(self):
         if self.from_address:
             return self.from_address
+        default_settings_email = getattr(settings, 'EMAILTEMPLATES_DEFAULT_FROM_EMAIL', None)
+        if default_settings_email:
+            return default_settings_email
         site = Site.objects.get_current()
         if site.name:
             return '%s <no-reply@%s>' % (site.name, site.domain)
         else:
             return 'no-reply@%s' % site.domain
-    
-    def send(self, to_address, context={}, attachments=None, headers=None):
+
+    def send(self, to_addresses, context={}, attachments=None, headers=None):
         html_body = self.render(context)
         text_body = self.render_txt(context) or striptags(html_body)
-       
+
         subject = self._render_from_string(self.subject, context)
-        if isinstance(to_address, (str,unicode)):
-            to_address = (to_address,)
-        msg = EmailMultiAlternatives(subject, text_body, self.visible_from_address(), to_address, headers=headers)
+        if isinstance(to_addresses, (str,unicode)):
+            to_addresses = (to_addresses,)
+
+        whitelisted_email_addresses = getattr(settings, 'EMAILTEMPLATES_DEBUG_WHITELIST', [])
+        if getattr(settings, 'EMAILTEMPLATES_DEBUG', False):
+            # clean non-whitelisted emails from the to_address
+            cleaned_to_addresses = []
+            for address in to_addresses:
+                try:
+                    email_domain = address.split('@')[1]
+                except IndexError:
+                    email_domain = None
+                if email_domain in whitelisted_email_addresses or address in whitelisted_email_addresses:
+                    cleaned_to_addresses.append(address)
+            to_addresses = cleaned_to_addresses
+        import pdb; pdb.set_trace()
+
+        msg = EmailMultiAlternatives(subject, text_body, self.visible_from_address(), to_addresses, headers=headers)
         msg.attach_alternative(html_body, "text/html")
 
         if attachments is not None:
             for attach in attachments:
                 msg.attach(*attach)
-
         return msg.send()
 
     def _render_from_string(self, s, context):
         t = Template(s)
-        return t.render(Context(context)) 
+        return t.render(Context(context))
 
     @staticmethod
     def send_template(slug, to_address, context={}, attachments=None, headers=None):
