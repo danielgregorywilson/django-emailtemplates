@@ -86,7 +86,7 @@ class EmailTemplate(basic_models.SlugModel):
 
     def _render_from_string(self, s, context):
         t = Template(s)
-        return t.render(Context(context))
+        return t.render(Context(context)).encode('ascii', 'ignore')
 
     @staticmethod
     def send_template(slug, to_address, context={}, attachments=None, headers=None):
