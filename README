@@ -1,7 +1,0 @@
-Django app to allow creation of emails using django templates in the admin.
-
-## Settings
-
-EMAILTEMPLATES_DEFAULT_FROM_EMAIL = 'noreply@yourdomain.com'
-EMAILTEMPLATES_DEBUG = True
-EMAILTEMPLATES_DEBUG_WHITELIST = ['someone@yourdomain.com','anotherdomain.com',]
